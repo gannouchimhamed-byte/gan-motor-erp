@@ -1,0 +1,12 @@
+{
+  "name": "gan-motor-erp",
+  "version": "1.0.0",
+  "description": "GAN Motor ERP — BYD Nabeul",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
