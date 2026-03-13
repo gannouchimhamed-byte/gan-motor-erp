@@ -181,65 +181,6 @@ function render(){
   else if(S.tab==="tres")content=renderTres();
   document.getElementById("app").innerHTML='<div class="hdr"><div style="padding:10px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #0f203555"><div style="display:flex;align-items:center;gap:12px"><div style="background:#c00000;border-radius:6px;padding:4px 11px;font-size:14px;font-weight:800;color:#fff;letter-spacing:2px">BYD</div><div><div style="font-size:15px;font-weight:800;color:'+P.text+'">GAN Motor <span style="font-size:11px;font-weight:400;color:'+P.muted+'">— ERP Direction</span></div><div style="font-size:10px;color:'+P.muted+'">Nabeul, Tunisie · '+TODAY+'</div></div></div><div style="display:flex;align-items:center;gap:10px">'+(pendY.length>0?'<div style="background:#f59e0b11;border:1px solid #f59e0b33;border-radius:6px;padding:4px 10px;font-size:11px;color:#f59e0b">⚠ '+pendY.length+' livraisons Yasmine en attente</div>':'')+'<div style="background:'+(c<2000?"#ff444411":"#00e67611")+';border:1px solid '+(c<2000?"#ff444433":"#00e67633")+';border-radius:6px;padding:4px 10px;text-align:center"><div style="font-size:9px;color:'+P.muted+'">Trésorerie</div><div style="font-size:13px;font-weight:800;color:'+(c<2000?P.red:P.green)+'">'+fmt(c)+' DT</div></div><div style="text-align:right"><div style="font-size:9px;color:'+P.muted+'">DG</div><div style="font-size:12px;font-weight:700;color:'+P.gold+'">👤 Mhamed</div></div></div></div><div style="display:flex;align-items:center;padding:0 20px;overflow-x:auto">'+TABS.map(function(t){return'<button class="tab-btn '+(S.tab===t.id?"active":"")+'" onclick="setTab(\''+t.id+'\')">'+t.l+'</button>';}).join("")+'<div style="flex:1"></div><select onchange="setMi(this.value)" style="background:#0a1520;color:'+P.text+';border:1px solid #0f2035;border-radius:6px;padding:4px 8px;font-size:11px;margin-right:4px">'+MONTHS.map(function(m,i){return'<option value="'+i+'"'+(i===S.mi?" selected":"")+'>'+m+' 2026</option>';}).join("")+'</select></div></div><div style="padding:16px 20px">'+content+'</div>';
 }
-var SAVE_TIMER = null;
-
-function loadFromServer() {
-  fetch('/api/data')
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if(data.cars) ST.cars = data.cars;
-      if(data.savs) ST.savs = data.savs;
-      if(data.carros) ST.carros = data.carros;
-      if(data.txns) ST.txns = data.txns;
-      if(data.recvs) ST.recvs = data.recvs;
-      if(data.pays) ST.pays = data.pays;
-      render();
-      showToast('✅ Données chargées depuis le serveur');
-    })
-    .catch(function(){ render(); });
-}
-
-function saveToServer() {
-  var data = {
-    cars: ST.cars, savs: ST.savs, carros: ST.carros,
-    txns: ST.txns, recvs: ST.recvs, pays: ST.pays
-  };
-  fetch('/api/data', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(data)
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(){ showToast('💾 Sauvegardé !'); })
-  .catch(function(){ showToast('⚠ Erreur sauvegarde'); });
-}
-
-function autoSave() {
-  clearTimeout(SAVE_TIMER);
-  SAVE_TIMER = setTimeout(saveToServer, 1500);
-}
-
-function showToast(msg) {
-  var t = document.getElementById('toast');
-  if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
-  t.textContent = msg;
-  t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#0a1520;color:#d0e8ff;border:1px solid #0f2035;border-radius:8px;padding:10px 16px;font-size:12px;z-index:9999;opacity:1;transition:opacity .5s';
-  clearTimeout(t._timer);
-  t._timer = setTimeout(function(){ t.style.opacity='0'; }, 2500);
-}
-
-// Patch all state-changing functions to auto-save
-var _origUpdCar=updCar,_origUpdSav=updSav,_origUpdCro=updCro,_origMarkRecv=markRecv,_origMarkPay=markPay,_origAddCar=addCar,_origAddSav=addSav,_origAddCro=addCro,_origAddTxn=addTxn;
-updCar=function(id,s){_origUpdCar(id,s);autoSave();};
-updSav=function(id,v){_origUpdSav(id,v);autoSave();};
-updCro=function(id,v){_origUpdCro(id,v);autoSave();};
-markRecv=function(id){_origMarkRecv(id);autoSave();};
-markPay=function(id){_origMarkPay(id);autoSave();};
-addCar=function(){_origAddCar();autoSave();};
-addSav=function(){_origAddSav();autoSave();};
-addCro=function(){_origAddCro();autoSave();};
-addTxn=function(){_origAddTxn();autoSave();};
-
 // ── AUTH ─────────────────────────────────────────────────────────
 var AUTH_TOKEN = localStorage.getItem('gan_token') || null;
 
