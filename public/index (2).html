@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>GAN Motor ERP</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#050b0f;color:#d0e8ff;font-family:Arial,sans-serif;min-height:100vh}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:2px}
+button{cursor:pointer;font-family:Arial,sans-serif}button:hover{opacity:.8}
+table{border-collapse:collapse;width:100%}
+.panel{background:#0a1520;border:1px solid #0f2035;border-radius:10px}
+.badge{display:inline-block;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;white-space:nowrap}
+.inp{background:#060e16;border:1px solid #0f2035;border-radius:6px;color:#d0e8ff;font-size:12px;padding:6px 9px;width:100%}
+.inp:focus{outline:1px solid #00d4ff}
+.lbl{font-size:10px;color:#3a6080;margin-bottom:3px;display:block}
+.btn{padding:7px 16px;border-radius:7px;border:none;font-size:12px;font-weight:600}
+.btn-red{background:#c00000;color:#fff}.btn-teal{background:#2a9d8f;color:#fff}
+.btn-purple{background:#8b5cf6;color:#fff}.btn-cyan{background:#00d4ff;color:#050b0f}
+.btn-ghost{background:transparent;border:1px solid #0f2035!important;color:#3a6080}
+.tab-btn{padding:8px 13px;border:none;background:transparent;color:#3a6080;font-size:12px;white-space:nowrap;border-bottom:2px solid transparent}
+.tab-btn.active{color:#d0e8ff;border-bottom:2px solid #00d4ff}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+.g6{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.fg{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.th th{padding:8px 10px;font-size:10px;color:#3a6080;border-bottom:1px solid #0f2035;text-align:left;background:#060e16}
+tr:nth-child(even){background:#060e16}tr:nth-child(odd){background:transparent}
+td{padding:6px 10px;border-bottom:1px solid rgba(15,32,53,.4)}
+.hdr{background:linear-gradient(135deg,#050b0f,#0a1a2e);border-bottom:1px solid #0f2035;position:sticky;top:0;z-index:100}
+.sec{display:flex;flex-direction:column;gap:14px}
+.hidden{display:none!important}
+.fs{border-radius:10px;padding:14px}
+.kpi{background:#0a1520;border-radius:10px;padding:14px 16px;position:relative;overflow:hidden}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+var MODELS=[
+  {name:"Song Plus",    ganComm:1000,yasmineComm:80, color:"#e63946"},
+  {name:"Qin Plus",    ganComm:600, yasmineComm:60, color:"#f4a261"},
+  {name:"Dolphin",     ganComm:800, yasmineComm:40, color:"#2a9d8f"},
+  {name:"Atto 3",      ganComm:1000,yasmineComm:60, color:"#457b9d"},
+  {name:"Dolphin Surf",ganComm:400, yasmineComm:60, color:"#e9c46a"},
+  {name:"Tang",        ganComm:1500,yasmineComm:120,color:"#8338ec"},
+];
+var YASMINE_FIXED=600;
+var MONTHS=["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+var TODAY="2026-03-12";
+var P={bg:"#050b0f",panel:"#0a1520",accent:"#00d4ff",gold:"#f5a623",green:"#00e676",red:"#ff4444",muted:"#3a6080",text:"#d0e8ff",orange:"#f59e0b",purple:"#a78bfa"};
+var SC={"Réservé":"#f59e0b","Facturé":"#0ea5e9","Livré":"#10b981"};
+var SAV_SC={"En attente":"#f59e0b","En cours":"#0ea5e9","Terminé":"#10b981","Annulé":"#ef4444"};
+var CAR_SC={"Expertise":"#8b5cf6","En réparation":"#f59e0b","Prêt":"#0ea5e9","Livré":"#10b981","Annulé":"#ef4444"};
+var SAV_STATUS=["En attente","En cours","Terminé","Annulé"];
+var CAR_STATUS=["Expertise","En réparation","Prêt","Livré","Annulé"];
+var CAR_TYPES=["Accrochage","Accident","Grêle","Vandalisme","Incendie","Autre"];
+var TXN_CATS=["Vente auto","SAV","Carrosserie","Salaire","Charges","BYD commission","Autre"];
+
+var _i=1,_sv=1,_cr=1;
+function mkC(model,seller,client,status,month){var id="GAN-"+String(_i++).padStart(3,"0");return{id:id,date:"2026-"+String(month+1).padStart(2,"0")+"-"+String(4+(_i%17)).padStart(2,"0"),model:model,seller:seller,client:client,status:status,financement:"Comptant",banque:"",invoiceDate:status!=="Réservé"?"2026-"+String(month+1).padStart(2,"0")+"-15":null,invoiceMonth:status!=="Réservé"?month:null,deliveryDate:status==="Livré"?"2026-"+String(month+1).padStart(2,"0")+"-20":null,deliveryMonth:status==="Livré"?month:null};}
+function mkS(client,veh,type,status,cout,month){return{id:"SAV-"+String(_sv++).padStart(3,"0"),date:"2026-"+String(month+1).padStart(2,"0")+"-"+String(3+_sv%20).padStart(2,"0"),client:client,vehicule:veh,type:type,statut:status,cout:cout,facture:status==="Terminé"?"FSAV-"+String(_sv).padStart(3,"0"):null,paye:status==="Terminé",notes:""};}
+function mkR(client,veh,type,status,devis,cout,assur,month){return{id:"CAR-"+String(_cr++).padStart(3,"0"),date:"2026-"+String(month+1).padStart(2,"0")+"-"+String(5+_cr%15).padStart(2,"0"),client:client,vehicule:veh,sinistre:type,statut:status,devis:devis,cout:cout,assurance:assur,facture:status==="Livré"?"FCAR-"+String(_cr).padStart(3,"0"):null,paye:status==="Livré",notes:""};}
+
+var ST={
+  tab:"overview",mi:2,showCF:false,showSF:false,showCRF:false,showTF:false,
+  nCar:{model:"Song Plus",seller:"Yasmine",client:"",status:"Réservé",financement:"Comptant",banque:""},
+  nSav:{client:"",vehicule:"",type:"Révision",statut:"En attente",cout:0,notes:""},
+  nCro:{client:"",vehicule:"",sinistre:"Accrochage",statut:"Expertise",devis:0,cout:0,assurance:"",notes:""},
+  nTxn:{date:TODAY,type:"entrée",cat:"Autre",label:"",montant:0,compte:"Banque"},
+  cars:[mkC("Song Plus","Mhamed","Ben Ali Mohamed","Livré",0),mkC("Atto 3","Mhamed","Gharbi Sonia","Livré",0),mkC("Tang","Mhamed","Trabelsi Khaled","Livré",1),mkC("Song Plus","Mhamed","Mansour Rim","Livré",1),mkC("Dolphin","Mhamed","Chaabane Anis","Livré",2),mkC("Song Plus","Mhamed","Zouari Hichem","Livré",2),mkC("Atto 3","Mhamed","Mejri Nadia","Facturé",2),mkC("Tang","Mhamed","Dridi Omar","Réservé",2),mkC("Song Plus","Yasmine","Boughanmi Leila","Livré",0),mkC("Qin Plus","Yasmine","Sfar Walid","Livré",0),mkC("Dolphin Surf","Yasmine","Hamdi Ines","Livré",0),mkC("Qin Plus","Yasmine","Karoui Sami","Livré",1),mkC("Song Plus","Yasmine","Ben Salah Rim","Livré",1),mkC("Dolphin","Yasmine","Jebali Farouk","Livré",2),mkC("Dolphin Surf","Yasmine","Nasri Amira","Livré",2),mkC("Atto 3","Yasmine","Hamza Bilel","Livré",2),mkC("Tang","Yasmine","Rejeb Mouna","Facturé",2),mkC("Song Plus","Yasmine","Dridi Salma","Réservé",2),mkC("Qin Plus","Yasmine","Miled Rania","Réservé",2)],
+  savs:[mkS("Ben Ali Mohamed","BYD Atto 3","Révision","Terminé",280,0),mkS("Gharbi Sonia","BYD Song Plus","Réparation","Terminé",520,0),mkS("Trabelsi Khaled","BYD Tang","Diagnostic","Terminé",90,1),mkS("Mansour Rim","BYD Dolphin","Entretien","Terminé",350,1),mkS("Chaabane Anis","BYD Qin Plus","Réparation","En cours",420,2),mkS("Zouari Hichem","BYD Atto 3","Révision","En attente",260,2),mkS("Mejri Nadia","BYD Song Plus","Garantie","Terminé",0,2),mkS("Dridi Omar","BYD Tang","Réparation","En cours",680,2)],
+  carros:[mkR("Sfar Walid","BYD Atto 3","Accrochage","Livré",1200,1150,"STAR",0),mkR("Hamdi Ines","BYD Song Plus","Grêle","Livré",3400,2800,"GAT",0),mkR("Karoui Sami","BYD Dolphin","Accrochage","En réparation",950,0,"ASTREE",1),mkR("Ben Salah Rim","BYD Tang","Accident","Livré",680,650,"COMAR",1),mkR("Jebali Farouk","BYD Qin Plus","Vandalisme","Expertise",800,0,"STAR",2),mkR("Nasri Amira","BYD Atto 3","Accident","En réparation",4200,0,"GAT",2),mkR("Hamza Bilel","BYD Song Plus","Accrochage","Prêt",620,580,"ASTREE",2)],
+  txns:[{id:"TXN-001",date:"2026-01-20",type:"entrée",cat:"BYD commission",label:"Commissions BYD Janvier",montant:4600,compte:"Banque"},{id:"TXN-002",date:"2026-01-31",type:"sortie",cat:"Salaire",label:"Salaire Yasmine Janvier",montant:620,compte:"Banque"},{id:"TXN-003",date:"2026-01-15",type:"entrée",cat:"SAV",label:"Paiement SAV Ben Ali",montant:280,compte:"Caisse"},{id:"TXN-004",date:"2026-01-18",type:"entrée",cat:"SAV",label:"Paiement SAV Gharbi",montant:520,compte:"Caisse"},{id:"TXN-005",date:"2026-01-22",type:"entrée",cat:"Carrosserie",label:"Règlement Sfar",montant:1150,compte:"Banque"},{id:"TXN-006",date:"2026-01-25",type:"entrée",cat:"Carrosserie",label:"Règlement Hamdi",montant:2800,compte:"Banque"},{id:"TXN-007",date:"2026-02-20",type:"entrée",cat:"BYD commission",label:"Commissions BYD Fév",montant:3600,compte:"Banque"},{id:"TXN-008",date:"2026-02-28",type:"sortie",cat:"Salaire",label:"Salaire Yasmine Fév",montant:660,compte:"Banque"},{id:"TXN-009",date:"2026-02-12",type:"entrée",cat:"SAV",label:"SAV Trabelsi",montant:90,compte:"Caisse"},{id:"TXN-010",date:"2026-02-20",type:"entrée",cat:"SAV",label:"SAV Mansour",montant:350,compte:"Caisse"},{id:"TXN-011",date:"2026-02-18",type:"entrée",cat:"Carrosserie",label:"Carro Ben Salah",montant:650,compte:"Banque"},{id:"TXN-012",date:"2026-03-05",type:"entrée",cat:"BYD commission",label:"Commissions BYD Mars",montant:5800,compte:"Banque"},{id:"TXN-013",date:"2026-03-10",type:"entrée",cat:"Carrosserie",label:"Carro Hamza",montant:580,compte:"Caisse"},{id:"TXN-014",date:"2026-03-08",type:"sortie",cat:"Charges",label:"Loyer local",montant:1200,compte:"Banque"},{id:"TXN-015",date:"2026-03-09",type:"sortie",cat:"Charges",label:"Fournitures bureau",montant:150,compte:"Caisse"}],
+  recvs:[{id:"CRE-001",client:"Karoui Sami",label:"Carrosserie Dolphin",montant:950,dateEcheance:"2026-03-25",statut:"En attente"},{id:"CRE-002",client:"Nasri Amira",label:"Carrosserie Atto 3",montant:4200,dateEcheance:"2026-04-10",statut:"En attente"},{id:"CRE-003",client:"Jebali Farouk",label:"Sinistre Qin Plus",montant:800,dateEcheance:"2026-04-05",statut:"En attente"},{id:"CRE-004",client:"Rejeb Mouna",label:"Tang facturée",montant:0,dateEcheance:"2026-03-30",statut:"En attente"}],
+  pays:[{id:"DET-001",fournisseur:"Loyer",label:"Loyer Avril",montant:1200,dateEcheance:"2026-04-05",statut:"En attente"},{id:"DET-002",fournisseur:"Pièces SAV",label:"Commande pièces",montant:850,dateEcheance:"2026-03-28",statut:"En attente"},{id:"DET-003",fournisseur:"Yasmine",label:"Commissions Mars",montant:340,dateEcheance:"2026-03-31",statut:"En attente"},{id:"DET-004",fournisseur:"Assurance",label:"Prime trimestrielle",montant:480,dateEcheance:"2026-04-01",statut:"En attente"}],
+};
+
+function fmt(n){return(Math.round(n)||0).toLocaleString("fr-FR");}
+function mdl(name){return MODELS.find(function(m){return m.name===name;})||{};}
+function ganRev(mi){return ST.cars.filter(function(c){return c.status==="Livré"&&c.deliveryMonth===mi;}).reduce(function(t,c){return t+(mdl(c.model).ganComm||0);},0);}
+function yComm(mi){return ST.cars.filter(function(c){return c.status==="Livré"&&c.deliveryMonth===mi&&c.seller==="Yasmine";}).reduce(function(t,c){return t+(mdl(c.model).yasmineComm||0);},0);}
+function yCost(mi){return YASMINE_FIXED+yComm(mi);}
+function savRev(mi){return ST.savs.filter(function(s){return s.paye&&parseInt(s.date.split("-")[1])-1===mi;}).reduce(function(t,s){return t+s.cout;},0);}
+function croRev(mi){return ST.carros.filter(function(c){return c.paye&&parseInt(c.date.split("-")[1])-1===mi;}).reduce(function(t,c){return t+c.cout;},0);}
+function caisse(){return ST.txns.filter(function(t){return t.compte==="Caisse";}).reduce(function(s,t){return s+(t.type==="entrée"?t.montant:-t.montant);},0);}
+function banque(){return ST.txns.filter(function(t){return t.compte==="Banque";}).reduce(function(s,t){return s+(t.type==="entrée"?t.montant:-t.montant);},0);}
+function cash(){return caisse()+banque();}
+function tRecv(){return ST.recvs.filter(function(r){return r.statut!=="Encaissé";}).reduce(function(s,r){return s+r.montant;},0);}
+function tPay(){return ST.pays.filter(function(p){return p.statut!=="Soldé";}).reduce(function(s,p){return s+p.montant;},0);}
+
+function bdg(label,color){var c=color||"#888";return '<span class="badge" style="background:'+c+'22;color:'+c+';border:1px solid '+c+'44">'+label+'</span>';}
+function kpi(icon,label,value,color,sub){return '<div class="kpi" style="border:1px solid '+color+'22"><div style="position:absolute;top:8px;right:10px;font-size:18px;opacity:.1">'+icon+'</div><div style="font-size:9px;color:'+P.muted+';text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px">'+label+'</div><div style="font-size:19px;font-weight:800;color:'+color+'">'+value+'</div>'+(sub?'<div style="font-size:10px;color:'+P.muted+';margin-top:3px">'+sub+'</div>':'')+'</div>';}
+function selEl(id,opts,val){return '<select class="inp" id="'+id+'">'+opts.map(function(o){return'<option value="'+o+'"'+(o===val?' selected':'')+'>'+o+'</option>';}).join('')+'</select>';}
+function inpEl(id,type,val,ph){return '<input class="inp" id="'+id+'" type="'+(type||"text")+'" value="'+(val||"")+'" placeholder="'+(ph||"")+'">';}
+function g(id){var el=document.getElementById(id);return el?el.value:"";}
+function toggle(k){ST[k]=!ST[k];render();}
+function setTab(t){ST.tab=t;render();}
+function setMi(v){ST.mi=+v;render();}
+
+function updCarInvoiceMonth(id,val){
+  ST.cars=ST.cars.map(function(c){return c.id===id?Object.assign({},c,{invoiceMonth:val===''?null:+val}):c;});
+  autoSave();render();
+}
+function updCar(id,status){ST.cars=ST.cars.map(function(c){if(c.id!==id)return c;var u=Object.assign({},c,{status:status});if(status!=="Réservé"&&!c.invoiceDate){u.invoiceDate=TODAY;u.invoiceMonth=ST.mi;}if(status==="Livré"&&!c.deliveryDate){u.deliveryDate=TODAY;u.deliveryMonth=ST.mi;}return u;});render();}
+function updSav(id,v){ST.savs=ST.savs.map(function(s){return s.id===id?Object.assign({},s,{statut:v,paye:v==="Terminé",facture:v==="Terminé"?"FSAV-"+id:null}):s;});render();}
+function updCro(id,v){ST.carros=ST.carros.map(function(c){return c.id===id?Object.assign({},c,{statut:v,paye:v==="Livré",facture:v==="Livré"?"FCAR-"+id:null}):c;});render();}
+function markRecv(id){ST.recvs=ST.recvs.map(function(r){return r.id===id?Object.assign({},r,{statut:"Encaissé"}):r;});render();}
+function markPay(id){ST.pays=ST.pays.map(function(p){return p.id===id?Object.assign({},p,{statut:"Soldé"}):p;});render();}
+function addCar(){var client=g("nCar_client");if(!client)return;var model=g("nCar_model"),seller=g("nCar_seller"),status=g("nCar_status"),id="GAN-"+String(ST.cars.length+1).padStart(3,"0");var financement=g("nCar_financement")||"Comptant",banque=g("nCar_banque")||"";
+ST.cars.push({id:id,date:TODAY,model:model,seller:seller,client:client,status:status,financement:financement,banque:banque,invoiceDate:status!=="Réservé"?TODAY:null,invoiceMonth:status!=="Réservé"?ST.mi:null,deliveryDate:status==="Livré"?TODAY:null,deliveryMonth:status==="Livré"?ST.mi:null});ST.showCF=false;render();}
+function addSav(){var client=g("nSav_client");if(!client)return;var id="SAV-"+String(ST.savs.length+1).padStart(3,"0"),statut=g("nSav_statut");ST.savs.push({id:id,date:TODAY,client:client,vehicule:g("nSav_vehicule"),type:g("nSav_type"),statut:statut,cout:+g("nSav_cout"),notes:g("nSav_notes"),paye:statut==="Terminé",facture:statut==="Terminé"?"FSAV-"+id:null});ST.showSF=false;render();}
+function addCro(){var client=g("nCro_client");if(!client)return;var id="CAR-"+String(ST.carros.length+1).padStart(3,"0"),statut=g("nCro_statut");ST.carros.push({id:id,date:TODAY,client:client,vehicule:g("nCro_vehicule"),sinistre:g("nCro_sinistre"),statut:statut,devis:+g("nCro_devis"),cout:+g("nCro_cout"),assurance:g("nCro_assurance"),notes:g("nCro_notes"),paye:statut==="Livré",facture:statut==="Livré"?"FCAR-"+id:null});ST.showCRF=false;render();}
+function addTxn(){var label=g("nTxn_label"),montant=+g("nTxn_montant");if(!label||!montant)return;var id="TXN-"+String(ST.txns.length+1).padStart(3,"0");ST.txns.push({id:id,date:g("nTxn_date"),type:g("nTxn_type"),cat:g("nTxn_cat"),label:label,montant:montant,compte:g("nTxn_compte"),ref:g("nTxn_ref")||""});ST.showTF=false;render();}
+
+function renderOverview(){
+  var mi=ST.mi,mGan=ganRev(mi),mSav=savRev(mi),mCro=croRev(mi),mTotal=mGan+mSav+mCro,mYC=yCost(mi),c=cash();
+  var tGan=0,tSav=0,tCro=0;for(var i=0;i<12;i++){tGan+=ganRev(i);tSav+=savRev(i);tCro+=croRev(i);}
+  var tAll=tGan+tSav+tCro;
+  var savEC=ST.savs.filter(function(s){return s.statut==="En cours"||s.statut==="En attente";});
+  var croEC=ST.carros.filter(function(c){return c.statut==="En réparation"||c.statut==="Expertise"||c.statut==="Prêt";});
+  var maxC=1;for(var i=0;i<12;i++){var v=ganRev(i)+savRev(i)+croRev(i);if(v>maxC)maxC=v;}
+  var bars=MONTHS.map(function(m,i){
+    var vG=ganRev(i),vS=savRev(i),vC=croRev(i),vCh=yCost(i),tot=vG+vS+vC;
+    var h=130,pG=Math.round(vG/maxC*h),pS=Math.round(vS/maxC*h),pC=Math.round(vC/maxC*h),pCh=Math.round(vCh/maxC*h);
+    return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;position:relative"><div style="display:flex;align-items:flex-end;gap:1px;width:100%"><div style="flex:3;display:flex;flex-direction:column;justify-content:flex-end;height:'+h+'px"><div style="background:'+P.purple+';height:'+pC+'px;min-height:'+(pC>0?2:0)+'px" title="Carro '+fmt(vC)+' DT"></div><div style="background:#2a9d8f;height:'+pS+'px;min-height:'+(pS>0?2:0)+'px" title="SAV '+fmt(vS)+' DT"></div><div style="background:'+P.accent+';height:'+pG+'px;min-height:'+(pG>0?2:0)+'px;border-radius:2px 2px 0 0" title="BYD '+fmt(vG)+' DT"></div></div><div style="flex:2;display:flex;flex-direction:column;justify-content:flex-end;height:'+h+'px"><div style="background:'+P.orange+';opacity:.7;height:'+pCh+'px;min-height:'+(pCh>0?2:0)+'px;border-radius:2px 2px 0 0" title="Charges '+fmt(vCh)+' DT"></div></div></div><div style="font-size:8px;color:'+(i===mi?P.accent:P.muted)+';margin-top:3px;font-weight:'+(i===mi?700:400)+'">'+m+'</div></div>';
+  }).join("");
+  return '<div class="sec"><div class="g6">'+kpi("🚗","BYD "+MONTHS[mi],fmt(mGan)+" DT",P.accent)+kpi("🔧","SAV "+MONTHS[mi],fmt(mSav)+" DT","#2a9d8f")+kpi("🛡","Carro "+MONTHS[mi],fmt(mCro)+" DT",P.purple)+kpi("💰","Total revenus",fmt(mTotal)+" DT",P.green,"Toutes activités")+kpi("💸","Charges Yasmine",fmt(mYC)+" DT",P.orange,"Fixe 600 + Comm")+kpi("🏦","Trésorerie",fmt(c)+" DT",c<2000?P.red:P.green,"Caisse+Banque")+'</div><div class="g2"><div class="panel" style="padding:14px"><div style="font-size:12px;font-weight:600;margin-bottom:10px">Revenus 2026 par activité</div><div style="display:flex;align-items:flex-end;gap:2px;height:155px;padding-bottom:20px;overflow:hidden">'+bars+'</div><div style="display:flex;gap:12px;margin-top:4px">'+'<div style="display:flex;align-items:center;gap:4px;font-size:10px;color:'+P.muted+'"><div style="width:8px;height:8px;background:'+P.accent+';border-radius:2px"></div>BYD</div><div style="display:flex;align-items:center;gap:4px;font-size:10px;color:'+P.muted+'"><div style="width:8px;height:8px;background:#2a9d8f;border-radius:2px"></div>SAV</div><div style="display:flex;align-items:center;gap:4px;font-size:10px;color:'+P.muted+'"><div style="width:8px;height:8px;background:'+P.purple+';border-radius:2px"></div>Carro</div><div style="display:flex;align-items:center;gap:4px;font-size:10px;color:'+P.muted+'"><div style="width:8px;height:8px;background:'+P.orange+';border-radius:2px"></div>Charges</div>'+'</div></div><div class="panel" style="padding:14px"><div style="font-size:12px;font-weight:600;margin-bottom:12px">Récap annuel YTD</div>'+[{l:"Revenus BYD",v:tGan,c:P.accent},{l:"SAV",v:tSav,c:"#2a9d8f"},{l:"Carrosserie",v:tCro,c:P.purple}].map(function(k){var pct=tAll?Math.round(k.v/tAll*100):0;return'<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:'+P.muted+'">'+k.l+'</span><span style="font-size:12px;font-weight:700;color:'+k.c+'">'+fmt(k.v)+' DT</span></div><div style="background:#0f2035;border-radius:4px;height:6px"><div style="background:'+k.c+';height:6px;border-radius:4px;width:'+pct+'%"></div></div></div>';}).join("")+'<div style="border-top:1px solid #0f2035;padding-top:10px">'+[{l:"Total YTD",v:tAll,c:P.green},{l:"Créances",v:tRecv(),c:P.orange},{l:"Dettes",v:tPay(),c:P.red}].map(function(k){return'<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:'+P.muted+'">'+k.l+'</span><span style="font-size:12px;font-weight:700;color:'+k.c+'">'+fmt(k.v)+' DT</span></div>';}).join("")+'</div></div></div><div class="g3"><div class="panel" style="padding:14px;border-color:#f59e0b33"><div style="font-size:12px;font-weight:600;color:#f59e0b;margin-bottom:8px">⏳ SAV actifs ('+savEC.length+')</div>'+savEC.slice(0,4).map(function(s){return'<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #0f203533"><span style="font-size:11px">'+s.client+'</span>'+bdg(s.statut,SAV_SC[s.statut])+'</div>';}).join("")+(savEC.length===0?'<div style="color:'+P.muted+';font-size:11px">Aucun dossier</div>':'')+'</div><div class="panel" style="padding:14px;border-color:#8b5cf633"><div style="font-size:12px;font-weight:600;color:'+P.purple+';margin-bottom:8px">🛡 Carrosseries ('+croEC.length+')</div>'+croEC.slice(0,4).map(function(c){return'<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #0f203533"><span style="font-size:11px">'+c.client+'</span>'+bdg(c.statut,CAR_SC[c.statut])+'</div>';}).join("")+(croEC.length===0?'<div style="color:'+P.muted+';font-size:11px">Aucun dossier</div>':'')+'</div><div class="panel" style="padding:14px;border-color:#ff444433"><div style="font-size:12px;font-weight:600;color:'+P.red+';margin-bottom:8px">💳 Finances urgentes</div>'+ST.recvs.filter(function(r){return r.statut!=="Encaissé";}).slice(0,2).map(function(r){return'<div style="padding:4px 0;border-bottom:1px solid #0f203533"><div style="font-size:11px">'+r.client+' — '+fmt(r.montant)+' DT</div><div style="font-size:10px;color:'+P.muted+'">Éch: '+r.dateEcheance+'</div></div>';}).join("")+'<div style="font-size:10px;color:'+P.orange+';margin-top:6px">Dettes: '+fmt(tPay())+' DT à régler</div></div></div></div>';
+}
+
+function renderVentes(){
+  var visibleCars=USER_ROLE==='yasmine'?ST.cars.filter(function(c){return c.seller==='Yasmine';}):ST.cars;
+  var rows=Array.prototype.slice.call(visibleCars).sort(function(a,b){return b.id.localeCompare(a.id);}).map(function(c){
+  var m=mdl(c.model),dlv=c.status==="Livré";
+  var finCol='<td>'+(c.financement?'<div><span style="font-size:11px;font-weight:600;color:'+(c.financement==="Comptant"?P.green:c.financement==="Leasing"?P.accent:c.financement==="Crédit bancaire"?P.purple:P.orange)+'">'+c.financement+'</span>'+(c.banque?'<div style="font-size:10px;color:'+P.muted+'">'+c.banque+'</div>':'')+'</div>':"—")+'</td>';
+  var adminCols=USER_ROLE!=='yasmine'?
+    '<td style="color:'+(c.seller==="Mhamed"?P.gold:"#70b8d4")+';font-weight:600">'+c.seller+'</td>'+
+    '<td style="font-weight:600;color:'+(dlv?P.green:P.muted)+'">'+(dlv?fmt(m.ganComm||0)+' DT':"—")+'</td>'+
+    '<td>'+(c.seller==="Yasmine"?'<span style="font-weight:600;color:'+(dlv?P.green:P.orange)+'">'+fmt(m.yasmineComm||0)+' DT '+(dlv?'✅':'⏳')+'</span>':'<span style="color:'+P.muted+'">—</span>')+'</td>'+
+    '<td><select class="inp" style="width:auto;padding:2px 5px;font-size:10px" onchange="updCar(\''+c.id+'\',this.value)"><option'+(c.status==="Réservé"?" selected":"")+'>Réservé</option><option'+(c.status==="Facturé"?" selected":"")+'>Facturé</option><option'+(c.status==="Livré"?" selected":"")+'>Livré</option></select></td>'
+    :'';
+  return '<tr>'+
+    '<td><span style="font-size:10px;color:'+P.accent+';font-weight:600">'+c.id+'</span></td>'+
+    '<td style="font-size:10px;color:'+P.muted+'">'+c.date+'</td>'+
+    '<td style="font-weight:500">'+c.client+'</td>'+
+    '<td><span style="color:'+(m.color||"#888")+';font-weight:600">● '+c.model+'</span></td>'+
+    finCol+
+    '<td><select class="inp" style="width:auto;padding:2px 5px;font-size:10px" onchange="updCarInvoiceMonth(\''+c.id+'\',this.value)">'+
+    '<option value="">— Mois —</option>'+
+    MONTHS.map(function(m,i){return'<option value="'+i+'"'+(c.invoiceMonth===i?' selected':'')+'>'+m+' 2026</option>';}).join('')+
+    '</select></td>'+
+    '<td>'+bdg(c.status,SC[c.status])+'</td>'+
+    '<td style="font-size:10px;color:'+(c.deliveryDate?P.green:P.muted)+'">'+(c.deliveryDate||"—")+'</td>'+
+    adminCols+
+  '</tr>';
+}).join("");;
+  var pills=["Livré","Facturé","Réservé"].map(function(s){return'<span class="badge" style="background:'+SC[s]+'22;color:'+SC[s]+';border:1px solid '+SC[s]+'44">'+ST.cars.filter(function(c){return c.status===s;}).length+' '+s+'</span>';}).join("");
+  var form=ST.showCF?'<div class="fs" style="background:'+P.panel+';border:1px solid #c0000044"><div style="font-size:12px;font-weight:600;color:#e63946;margin-bottom:10px">🚗 Nouvelle vente</div><div class="fg"><div><label class="lbl">Modèle</label>'+selEl("nCar_model",MODELS.map(function(m){return m.name;}),ST.nCar.model)+'</div><div><label class="lbl">Vendeur</label>'+selEl("nCar_seller",["Mhamed","Yasmine"],ST.nCar.seller)+'</div><div><label class="lbl">Client</label>'+inpEl("nCar_client","text",ST.nCar.client,"Nom du client")+'</div><div><label class="lbl">Statut</label>'+selEl("nCar_status",["Réservé","Facturé","Livré"],ST.nCar.status)+'</div><div><label class="lbl">Financement</label>'+selEl("nCar_financement",["Comptant","Leasing","Crédit bancaire","Apport + Leasing","Apport + Crédit"],ST.nCar.financement)+'</div><div><label class="lbl">Banque / Leasing</label>'+inpEl("nCar_banque","text",ST.nCar.banque,"Ex: BIAT, ATL, Attijari...")+'</div></div><div style="margin-top:8px;padding:6px 10px;background:#f59e0b11;border:1px solid #f59e0b33;border-radius:6px;font-size:10px;color:#f59e0b">⚠ Commission Yasmine versée uniquement à la livraison</div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-red" onclick="addCar()">Enregistrer</button><button class="btn btn-ghost" onclick="toggle(\'showCF\')">Annuler</button></div></div>':'';
+  return'<div class="sec"><div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;gap:8px">'+pills+'</div><button class="btn btn-red" onclick="toggle(\'showCF\')">+ Nouvelle vente</button></div>'+form+'<div class="panel" style="overflow:auto"><table><thead class="th"><tr><th>ID</th><th>Date</th><th>Client</th><th>Modèle</th><th>Financement</th><th>Mois factur\u00e9</th><th>Statut</th><th>Livraison</th>'+(USER_ROLE!=="yasmine"?"<th>Vendeur</th><th>Comm. GAN</th><th>Comm. Yasmine</th><th>Action</th>":"")+'</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+
+function renderSAV(){
+  var tS=0;for(var i=0;i<12;i++)tS+=savRev(i);
+  var cards=SAV_STATUS.map(function(st){return'<div class="panel" style="padding:12px;border-color:'+SAV_SC[st]+'33"><div style="font-size:10px;color:'+P.muted+';margin-bottom:4px">'+st+'</div><div style="font-size:20px;font-weight:800;color:'+SAV_SC[st]+'">'+ST.savs.filter(function(s){return s.statut===st;}).length+'</div><div style="font-size:11px;color:'+P.green+';margin-top:3px">'+fmt(ST.savs.filter(function(s){return s.statut===st;}).reduce(function(t,s){return t+s.cout;},0))+' DT</div></div>';}).join("");
+  var form=ST.showSF?'<div class="fs" style="background:'+P.panel+';border:1px solid #2a9d8f44"><div style="font-size:12px;font-weight:600;color:#2a9d8f;margin-bottom:10px">🔧 Nouveau dossier SAV</div><div class="fg"><div><label class="lbl">Client</label>'+inpEl("nSav_client")+'</div><div><label class="lbl">Véhicule</label>'+inpEl("nSav_vehicule","text","","BYD ...")+'</div><div><label class="lbl">Type</label>'+selEl("nSav_type",["Révision","Réparation","Diagnostic","Entretien","Garantie"],"Révision")+'</div><div><label class="lbl">Statut</label>'+selEl("nSav_statut",SAV_STATUS,"En attente")+'</div><div><label class="lbl">Coût (DT)</label>'+inpEl("nSav_cout","number","0")+'</div><div style="grid-column:span 3"><label class="lbl">Notes</label>'+inpEl("nSav_notes")+'</div></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-teal" onclick="addSav()">Enregistrer</button><button class="btn btn-ghost" onclick="toggle(\'showSF\')">Annuler</button></div></div>':'';
+  var rows=Array.prototype.slice.call(ST.savs).sort(function(a,b){return b.id.localeCompare(a.id);}).map(function(s){return'<tr><td><span style="font-size:10px;color:#2a9d8f;font-weight:600">'+s.id+'</span></td><td style="font-size:10px;color:'+P.muted+'">'+s.date+'</td><td style="font-weight:500">'+s.client+'</td><td style="color:'+P.muted+';font-size:11px">'+s.vehicule+'</td><td>'+s.type+'</td><td style="font-weight:600;color:'+(s.cout>0?P.green:P.muted)+'">'+(s.cout>0?fmt(s.cout)+' DT':'Garantie')+'</td><td>'+(s.facture?'<span style="font-size:10px;color:'+P.green+'">✅ '+s.facture+'</span>':'<span style="color:'+P.muted+'">—</span>')+'</td><td>'+bdg(s.statut,SAV_SC[s.statut])+'</td><td><select class="inp" style="width:auto;padding:2px 5px;font-size:10px" onchange="updSav(\''+s.id+'\',this.value)">'+SAV_STATUS.map(function(o){return'<option'+(s.statut===o?" selected":"")+'>'+o+'</option>';}).join("")+'</select></td></tr>';}).join("");
+  return'<div class="sec"><div class="g4">'+cards+'</div><div style="display:flex;justify-content:space-between;align-items:center"><span style="color:'+P.muted+'">Total encaissé : <strong style="color:'+P.green+'">'+fmt(tS)+' DT</strong></span><button class="btn btn-teal" onclick="toggle(\'showSF\')">+ Nouveau SAV</button></div>'+form+'<div class="panel" style="overflow:auto"><table><thead class="th"><tr><th>ID</th><th>Date</th><th>Client</th><th>Véhicule</th><th>Type</th><th>Coût</th><th>Facture</th><th>Statut</th><th>Action</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+
+function renderCarro(){
+  var tC=0;for(var i=0;i<12;i++)tC+=croRev(i);
+  var tDevis=ST.carros.reduce(function(t,c){return t+c.devis;},0);
+  var cards=CAR_STATUS.map(function(st){return'<div class="panel" style="padding:12px;border-color:'+CAR_SC[st]+'33"><div style="font-size:10px;color:'+P.muted+';margin-bottom:4px">'+st+'</div><div style="font-size:18px;font-weight:800;color:'+CAR_SC[st]+'">'+ST.carros.filter(function(c){return c.statut===st;}).length+'</div><div style="font-size:11px;color:'+P.green+';margin-top:3px">'+fmt(ST.carros.filter(function(c){return c.statut===st;}).reduce(function(t,c){return t+c.cout;},0))+' DT</div></div>';}).join("");
+  var form=ST.showCRF?'<div class="fs" style="background:'+P.panel+';border:1px solid #8b5cf644"><div style="font-size:12px;font-weight:600;color:'+P.purple+';margin-bottom:10px">🛡 Nouveau dossier Carrosserie</div><div class="fg"><div><label class="lbl">Client</label>'+inpEl("nCro_client")+'</div><div><label class="lbl">Véhicule</label>'+inpEl("nCro_vehicule","text","","BYD ...")+'</div><div><label class="lbl">Assurance</label>'+inpEl("nCro_assurance","text","","STAR, GAT...")+'</div><div><label class="lbl">Sinistre</label>'+selEl("nCro_sinistre",CAR_TYPES,"Accrochage")+'</div><div><label class="lbl">Statut</label>'+selEl("nCro_statut",CAR_STATUS,"Expertise")+'</div><div><label class="lbl">Devis (DT)</label>'+inpEl("nCro_devis","number","0")+'</div><div><label class="lbl">Coût réel (DT)</label>'+inpEl("nCro_cout","number","0")+'</div><div><label class="lbl">Notes</label>'+inpEl("nCro_notes")+'</div></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-purple" onclick="addCro()">Enregistrer</button><button class="btn btn-ghost" onclick="toggle(\'showCRF\')">Annuler</button></div></div>':'';
+  var rows=Array.prototype.slice.call(ST.carros).sort(function(a,b){return b.id.localeCompare(a.id);}).map(function(c){var e=c.cout-c.devis;return'<tr><td><span style="font-size:10px;color:'+P.purple+';font-weight:600">'+c.id+'</span></td><td style="font-size:10px;color:'+P.muted+'">'+c.date+'</td><td style="font-weight:500">'+c.client+'</td><td style="color:'+P.muted+';font-size:11px">'+c.vehicule+'</td><td>'+c.sinistre+'</td><td style="color:'+P.purple+';font-weight:600">'+(c.devis?fmt(c.devis)+' DT':'—')+'</td><td style="font-weight:600;color:'+(c.cout>0?P.green:P.muted)+'">'+(c.cout?fmt(c.cout)+' DT':'—')+'</td><td style="font-weight:600;color:'+(c.devis&&c.cout?(e<0?P.green:e>0?P.red:P.muted):P.muted)+'">'+(c.devis&&c.cout?(e>0?'+':'')+fmt(e)+' DT':'—')+'</td><td style="font-size:10px;color:'+P.accent+'">'+(c.assurance||'—')+'</td><td>'+bdg(c.statut,CAR_SC[c.statut])+'</td><td><select class="inp" style="width:auto;padding:2px 5px;font-size:10px" onchange="updCro(\''+c.id+'\',this.value)">'+CAR_STATUS.map(function(o){return'<option'+(c.statut===o?" selected":"")+'>'+o+'</option>';}).join("")+'</select></td></tr>';}).join("");
+  return'<div class="sec"><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">'+cards+'</div><div style="display:flex;justify-content:space-between;align-items:center"><span style="color:'+P.muted+'">Encaissé : <strong style="color:'+P.green+'">'+fmt(tC)+' DT</strong> &nbsp;|&nbsp; Devis : <strong style="color:'+P.purple+'">'+fmt(tDevis)+' DT</strong></span><button class="btn btn-purple" onclick="toggle(\'showCRF\')">+ Nouveau dossier</button></div>'+form+'<div class="panel" style="overflow:auto"><table><thead class="th"><tr><th>ID</th><th>Date</th><th>Client</th><th>Véhicule</th><th>Sinistre</th><th>Devis</th><th>Coût réel</th><th>Écart</th><th>Assurance</th><th>Statut</th><th>Action</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+
+function renderFin(){
+  var c=caisse(),b=banque(),rv=tRecv(),rp=tPay();
+  var recvRows=ST.recvs.map(function(r,i){var od=r.statut!=="Encaissé"&&r.dateEcheance<TODAY;return'<tr style="opacity:'+(r.statut==="Encaissé"?.5:1)+'"><td style="font-weight:500">'+r.client+'</td><td style="font-size:10px;color:'+P.muted+'">'+r.label+'</td><td style="font-weight:600;color:'+P.green+'">'+(r.montant?fmt(r.montant)+' DT':'—')+'</td><td style="font-size:10px;color:'+(od?P.red:P.muted)+'">'+r.dateEcheance+(od?' ⚠':'')+'</td><td>'+bdg(r.statut,r.statut==="Encaissé"?P.green:P.orange)+'</td><td>'+(r.statut!=="Encaissé"?'<button class="btn" style="padding:2px 8px;background:'+P.green+'33;color:'+P.green+';border:none;font-size:10px;border-radius:5px" onclick="markRecv(\''+r.id+'\')">Encaisser</button>':'')+'</td></tr>';}).join("");
+  var payRows=ST.pays.map(function(p){var od=p.statut!=="Soldé"&&p.dateEcheance<TODAY;return'<tr style="opacity:'+(p.statut==="Soldé"?.5:1)+'"><td style="font-weight:500">'+p.fournisseur+'</td><td style="font-size:10px;color:'+P.muted+'">'+p.label+'</td><td style="font-weight:600;color:'+P.red+'">'+fmt(p.montant)+' DT</td><td style="font-size:10px;color:'+(od?P.red:P.muted)+'">'+p.dateEcheance+(od?' ⚠':'')+'</td><td>'+bdg(p.statut,p.statut==="Soldé"?P.green:P.red)+'</td><td>'+(p.statut!=="Soldé"?'<button class="btn" style="padding:2px 8px;background:'+P.red+'22;color:'+P.red+';border:none;font-size:10px;border-radius:5px" onclick="markPay(\''+p.id+'\')">Régler</button>':'')+'</td></tr>';}).join("");
+  return'<div class="sec"><div class="g4">'+kpi("💵","Caisse",fmt(c)+" DT",c<500?P.red:P.green,"Espèces")+kpi("🏦","Banque",fmt(b)+" DT",b<1000?P.orange:P.green,"Compte")+kpi("📥","Créances",fmt(rv)+" DT",P.orange,ST.recvs.filter(function(r){return r.statut!=="Encaissé";}).length+" clients")+kpi("📤","Dettes",fmt(rp)+" DT",P.red,ST.pays.filter(function(p){return p.statut!=="Soldé";}).length+" fournisseurs")+'</div><div class="g2"><div class="panel" style="overflow:auto;border-color:#f59e0b33"><div style="padding:10px 14px;border-bottom:1px solid #0f2035;display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:600;color:'+P.orange+'">📥 Créances (à recevoir)</span><span style="font-weight:700;color:'+P.orange+'">'+fmt(rv)+' DT</span></div><table><thead class="th"><tr><th>Client</th><th>Description</th><th>Montant</th><th>Échéance</th><th>Statut</th><th></th></tr></thead><tbody>'+recvRows+'</tbody></table></div><div class="panel" style="overflow:auto;border-color:#ff444433"><div style="padding:10px 14px;border-bottom:1px solid #0f2035;display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:600;color:'+P.red+'">📤 Dettes (à payer)</span><span style="font-weight:700;color:'+P.red+'">'+fmt(rp)+' DT</span></div><table><thead class="th"><tr><th>Fournisseur</th><th>Description</th><th>Montant</th><th>Échéance</th><th>Statut</th><th></th></tr></thead><tbody>'+payRows+'</tbody></table></div></div></div>';
+}
+
+function renderTres(){
+  var c=caisse(),b=banque(),tc=cash();
+  var tIn=ST.txns.filter(function(t){return t.type==="entrée";}).reduce(function(s,t){return s+t.montant;},0);
+  var tOut=ST.txns.filter(function(t){return t.type==="sortie";}).reduce(function(s,t){return s+t.montant;},0);
+  var byM=MONTHS.map(function(m,i){return{m:m,i:i,e:ST.txns.filter(function(t){return t.type==="entrée"&&parseInt(t.date.split("-")[1])-1===i;}).reduce(function(s,t){return s+t.montant;},0),s:ST.txns.filter(function(t){return t.type==="sortie"&&parseInt(t.date.split("-")[1])-1===i;}).reduce(function(s,t){return s+t.montant;},0)};});
+  var maxT=Math.max.apply(null,byM.map(function(d){return d.e;}));if(!maxT)maxT=1;
+  var bars=byM.map(function(d){var pE=Math.round(d.e/maxT*110),pS=Math.round(d.s/maxT*110);return'<div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="display:flex;align-items:flex-end;gap:1px;width:100%"><div style="flex:1;height:'+pE+'px;background:'+P.green+';border-radius:2px 2px 0 0;min-height:'+(pE>0?2:0)+'px" title="Entrées '+MONTHS[d.i]+': '+fmt(d.e)+' DT"></div><div style="flex:1;height:'+pS+'px;background:'+P.red+';opacity:.8;border-radius:2px 2px 0 0;min-height:'+(pS>0?2:0)+'px" title="Sorties '+MONTHS[d.i]+': '+fmt(d.s)+' DT"></div></div><div style="font-size:8px;color:'+P.muted+';margin-top:3px">'+d.m+'</div></div>';}).join("");
+  var form=ST.showTF?'<div class="fs" style="background:'+P.panel+';border:1px solid '+P.accent+'44"><div style="font-size:12px;font-weight:600;color:'+P.accent+';margin-bottom:10px">💱 Nouveau mouvement</div><div class="fg"><div><label class="lbl">Date</label>'+inpEl("nTxn_date","date",TODAY)+'</div><div><label class="lbl">Type</label>'+selEl("nTxn_type",["entrée","sortie"],"entrée")+'</div><div><label class="lbl">Catégorie</label>'+selEl("nTxn_cat",TXN_CATS,"Autre")+'</div><div><label class="lbl">Compte</label>'+selEl("nTxn_compte",["Banque","Caisse"],"Banque")+'</div><div style="grid-column:span 2"><label class="lbl">Libellé</label>'+inpEl("nTxn_label","text","","Description...")+'</div><div><label class="lbl">Montant (DT)</label>'+inpEl("nTxn_montant","number","0")+'</div><div><label class="lbl">Référence</label>'+inpEl("nTxn_ref","text","","N° doc...")+'</div></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-cyan" onclick="addTxn()">Enregistrer</button><button class="btn btn-ghost" onclick="toggle(\'showTF\')">Annuler</button></div></div>':'';
+  var txnRows=Array.prototype.slice.call(ST.txns).sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(t){return'<tr><td style="font-size:10px;color:'+P.muted+'">'+t.id+'</td><td style="font-size:10px;color:'+P.muted+'">'+t.date+'</td><td><span style="font-weight:600;color:'+(t.type==="entrée"?P.green:P.red)+'">'+(t.type==="entrée"?"↑ Entrée":"↓ Sortie")+'</span></td><td>'+bdg(t.cat,t.type==="entrée"?P.green:P.orange)+'</td><td>'+t.label+'</td><td>'+bdg(t.compte,t.compte==="Banque"?P.accent:P.gold)+'</td><td style="font-weight:700;color:'+(t.type==="entrée"?P.green:P.red)+'">'+(t.type==="entrée"?"+":"-")+fmt(t.montant)+' DT</td></tr>';}).join("");
+  return'<div class="sec"><div class="g3">'+kpi("💵","Solde Caisse",fmt(c)+" DT",c<500?P.red:P.green,"Espèces")+kpi("🏦","Solde Banque",fmt(b)+" DT",b<1000?P.orange:P.green,"Compte")+kpi("💰","Position totale",fmt(tc)+" DT",tc<2000?P.red:P.green,"Caisse+Banque")+'</div><div class="g2"><div class="panel" style="padding:14px"><div style="font-size:12px;font-weight:600;margin-bottom:10px">Flux mensuels 2026</div><div style="display:flex;align-items:flex-end;gap:2px;height:145px;padding-bottom:20px">'+bars+'</div><div style="display:flex;gap:12px;margin-top:4px"><div style="display:flex;align-items:center;gap:4px;font-size:10px;color:'+P.muted+'"><div style="width:8px;height:8px;background:'+P.green+';border-radius:2px"></div>Entrées</div><div style="display:flex;align-items:center;gap:4px;font-size:10px;color:'+P.muted+'"><div style="width:8px;height:8px;background:'+P.red+';border-radius:2px"></div>Sorties</div></div></div><div class="panel" style="padding:14px"><div style="font-size:12px;font-weight:600;margin-bottom:12px">Récapitulatif</div>'+[{l:"Solde Caisse",v:c,c:P.green},{l:"Solde Banque",v:b,c:P.green},{l:"Total entrées",v:tIn,c:P.green},{l:"Total sorties",v:tOut,c:P.red},{l:"Position nette",v:tc,c:tc<0?P.red:P.green}].map(function(k){return'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #0f203533"><span style="font-size:11px;color:'+P.muted+'">'+k.l+'</span><span style="font-size:12px;font-weight:700;color:'+k.c+'">'+fmt(k.v)+' DT</span></div>';}).join("")+'</div></div><div style="display:flex;justify-content:space-between;align-items:center"><span style="color:'+P.muted+'">'+ST.txns.length+' mouvements</span><button class="btn btn-cyan" onclick="toggle(\'showTF\')">+ Mouvement</button></div>'+form+'<div class="panel" style="overflow:auto"><table><thead class="th"><tr><th>ID</th><th>Date</th><th>Type</th><th>Catégorie</th><th>Libellé</th><th>Compte</th><th>Montant</th></tr></thead><tbody>'+txnRows+'</tbody></table></div></div>';
+}
+
+function render(){
+  var S=ST,c=cash();
+  var pendY=S.cars.filter(function(c){return c.seller==="Yasmine"&&c.status!=="Livré";});
+  var ALL_TABS=[{id:"overview",l:"📊 Direction"},{id:"ventes",l:"🚗 Ventes BYD"},{id:"sav",l:"🔧 SAV"},{id:"carro",l:"🛡 Carrosserie"},{id:"finance",l:"💰 Finances"},{id:"tres",l:"🏦 Trésorerie"}];
+  var TABS=USER_ROLE==='yasmine'?[{id:"ventes",l:"🚗 Mes Ventes"}]:ALL_TABS;
+  if(USER_ROLE==='yasmine'&&ST.tab!=='ventes')ST.tab='ventes';
+  var content="";
+  if(S.tab==="overview")content=renderOverview();
+  else if(S.tab==="ventes")content=renderVentes();
+  else if(S.tab==="sav")content=renderSAV();
+  else if(S.tab==="carro")content=renderCarro();
+  else if(S.tab==="finance")content=renderFin();
+  else if(S.tab==="tres")content=renderTres();
+  document.getElementById("app").innerHTML='<div class="hdr"><div style="padding:10px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #0f203555"><div style="display:flex;align-items:center;gap:12px"><div style="background:#c00000;border-radius:6px;padding:4px 11px;font-size:14px;font-weight:800;color:#fff;letter-spacing:2px">BYD</div><div><div style="font-size:15px;font-weight:800;color:'+P.text+'">GAN Motor <span style="font-size:11px;font-weight:400;color:'+P.muted+'">— ERP Direction</span></div><div style="font-size:10px;color:'+P.muted+'">Nabeul, Tunisie · '+TODAY+'</div></div></div><div style="display:flex;align-items:center;gap:10px">'+(pendY.length>0?'<div style="background:#f59e0b11;border:1px solid #f59e0b33;border-radius:6px;padding:4px 10px;font-size:11px;color:#f59e0b">⚠ '+pendY.length+' livraisons Yasmine en attente</div>':'')+'<div style="background:'+(c<2000?"#ff444411":"#00e67611")+';border:1px solid '+(c<2000?"#ff444433":"#00e67633")+';border-radius:6px;padding:4px 10px;text-align:center"><div style="font-size:9px;color:'+P.muted+'">Trésorerie</div><div style="font-size:13px;font-weight:800;color:'+(c<2000?P.red:P.green)+'">'+fmt(c)+' DT</div></div><div style="text-align:right"><div style="font-size:9px;color:'+P.muted+'">DG</div><div style="font-size:12px;font-weight:700;color:'+P.gold+'">👤 Mhamed</div></div></div></div><div style="display:flex;align-items:center;padding:0 20px;overflow-x:auto">'+TABS.map(function(t){return'<button class="tab-btn '+(S.tab===t.id?"active":"")+'" onclick="setTab(\''+t.id+'\')">'+t.l+'</button>';}).join("")+'<div style="flex:1"></div><select onchange="setMi(this.value)" style="background:#0a1520;color:'+P.text+';border:1px solid #0f2035;border-radius:6px;padding:4px 8px;font-size:11px;margin-right:4px">'+MONTHS.map(function(m,i){return'<option value="'+i+'"'+(i===S.mi?" selected":"")+'>'+m+' 2026</option>';}).join("")+'</select></div></div><div style="padding:16px 20px">'+content+'</div>';
+}
+// ── AUTH ─────────────────────────────────────────────────────────
+var AUTH_TOKEN = localStorage.getItem('gan_token') || null;
+var USER_ROLE = localStorage.getItem('gan_role') || null;
+
+function showLogin(errMsg) {
+  document.getElementById('app').innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#050b0f"><div style="background:#0a1520;border:1px solid #0f2035;border-radius:14px;padding:40px 36px;width:340px;text-align:center"><div style="background:#c00000;border-radius:6px;padding:4px 14px;font-size:18px;font-weight:800;color:#fff;letter-spacing:2px;display:inline-block;margin-bottom:16px">BYD</div><div style="font-size:18px;font-weight:800;color:#d0e8ff;margin-bottom:4px">GAN Motor ERP</div><div style="font-size:11px;color:#3a6080;margin-bottom:28px">Acc&#232;s s&#233;curis&#233; &mdash; Nabeul</div>'+(errMsg?'<div style="background:#ff444422;border:1px solid #ff444444;border-radius:7px;padding:8px 12px;font-size:12px;color:#ff4444;margin-bottom:16px">'+errMsg+'</div>':'')+'<input id="pwd_input" type="password" placeholder="Mot de passe" style="background:#060e16;border:1px solid #0f2035;border-radius:7px;color:#d0e8ff;font-size:14px;padding:10px 14px;width:100%;margin-bottom:12px;outline:none;text-align:center" onkeydown="if(event.keyCode===13)doLogin()"><button onclick="doLogin()" style="width:100%;padding:10px;border-radius:7px;border:none;background:#00d4ff;color:#050b0f;font-size:14px;font-weight:700;cursor:pointer">Connexion</button><div style="font-size:10px;color:#3a6080;margin-top:20px">GAN Motor &middot; Agent BYD Nabeul</div></div></div>';
+  setTimeout(function(){ var el=document.getElementById('pwd_input'); if(el) el.focus(); }, 100);
+}
+
+function doLogin() {
+  var pwd = document.getElementById('pwd_input').value;
+  if(!pwd) return;
+  fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password:pwd})})
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data.ok) {
+        AUTH_TOKEN = data.token;
+        USER_ROLE = data.role;
+        localStorage.setItem('gan_token', AUTH_TOKEN);
+        localStorage.setItem('gan_role', USER_ROLE);
+        loadFromServer();
+      } else {
+        showLogin('Mot de passe incorrect');
+      }
+    })
+    .catch(function(){ showLogin('Erreur de connexion'); });
+}
+
+function authHeaders() {
+  return {'Content-Type':'application/json','x-auth-token': AUTH_TOKEN||''};
+}
+
+function loadFromServer() {
+  fetch('/api/data', {headers: authHeaders()})
+    .then(function(r){
+      if(r.status===401){ showLogin(); return null; }
+      return r.json();
+    })
+    .then(function(data){
+      if(!data) return;
+      if(data.cars) ST.cars=data.cars;
+      if(data.savs) ST.savs=data.savs;
+      if(data.carros) ST.carros=data.carros;
+      if(data.txns) ST.txns=data.txns;
+      if(data.recvs) ST.recvs=data.recvs;
+      if(data.pays) ST.pays=data.pays;
+      render();
+      showToast('Données chargées');
+    })
+    .catch(function(){ render(); });
+}
+
+function saveToServer() {
+  var data={cars:ST.cars,savs:ST.savs,carros:ST.carros,txns:ST.txns,recvs:ST.recvs,pays:ST.pays};
+  fetch('/api/data', {method:'POST', headers:authHeaders(), body:JSON.stringify(data)})
+    .then(function(r){
+      if(r.status===401){ showLogin(); return null; }
+      return r.json();
+    })
+    .then(function(d){ if(d) showToast('Sauvegardé !'); })
+    .catch(function(){ showToast('Erreur sauvegarde'); });
+}
+
+function autoSave() {
+  clearTimeout(SAVE_TIMER);
+  SAVE_TIMER=setTimeout(saveToServer,1500);
+}
+
+function showToast(msg) {
+  var t=document.getElementById('toast');
+  if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t);}
+  t.textContent=msg;
+  t.style.cssText='position:fixed;bottom:20px;right:20px;background:#0a1520;color:#d0e8ff;border:1px solid #0f2035;border-radius:8px;padding:10px 16px;font-size:12px;z-index:9999;opacity:1;transition:opacity .5s';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(function(){t.style.opacity='0';},2500);
+}
+
+var SAVE_TIMER=null;
+var _oUC=updCar,_oUS=updSav,_oUCr=updCro,_oMR=markRecv,_oMP=markPay,_oAC=addCar,_oAS=addSav,_oACr=addCro,_oAT=addTxn;
+updCar=function(id,s){_oUC(id,s);autoSave();};
+updSav=function(id,v){_oUS(id,v);autoSave();};
+updCro=function(id,v){_oUCr(id,v);autoSave();};
+markRecv=function(id){_oMR(id);autoSave();};
+markPay=function(id){_oMP(id);autoSave();};
+addCar=function(){_oAC();autoSave();};
+addSav=function(){_oAS();autoSave();};
+addCro=function(){_oACr();autoSave();};
+addTxn=function(){_oAT();autoSave();};
+
+// Start — show app immediately, then try to sync
+render();
+setTimeout(function() {
+  if(AUTH_TOKEN) {
+    loadFromServer();
+  } else {
+    showLogin();
+  }
+}, 100);
+
+</script>
+</body>
+</html>
