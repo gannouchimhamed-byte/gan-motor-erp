@@ -126,7 +126,8 @@ function renderOverview(){
 }
 
 function renderVentes(){
-  var rows=Array.prototype.slice.call(ST.cars).sort(function(a,b){return b.id.localeCompare(a.id);}).map(function(c,i){var m=mdl(c.model),dlv=c.status==="Livré";return'<tr><td><span style="font-size:10px;color:'+P.accent+';font-weight:600">'+c.id+'</span></td><td style="font-size:10px;color:'+P.muted+'">'+c.date+'</td><td style="font-weight:500">'+c.client+'</td><td><span style="color:'+(m.color||"#888")+';font-weight:600">● '+c.model+'</span></td><td style="color:'+(c.seller==="Mhamed"?P.gold:"#70b8d4")+';font-weight:600">'+c.seller+'</td><td style="font-weight:600;color:'+(dlv?P.green:P.muted)+'">'+(dlv?fmt(m.ganComm||0)+' DT':'—')+'</td><td>'+(c.seller==="Yasmine"?'<span style="font-weight:600;color:'+(dlv?P.green:P.orange)+'">'+fmt(m.yasmineComm||0)+' DT '+(dlv?'✅':'⏳')+'</span>':'<span style="color:'+P.muted+'">—</span>')+'</td><td>'+bdg(c.status,SC[c.status])+'</td><td style="font-size:10px;color:'+(c.deliveryDate?P.green:P.muted)+'">'+(c.deliveryDate||'—')+'</td><td><select class="inp" style="width:auto;padding:2px 5px;font-size:10px" onchange="updCar(\''+c.id+'\',this.value)"><option'+(c.status==="Réservé"?" selected":"")+'>Réservé</option><option'+(c.status==="Facturé"?" selected":"")+'>Facturé</option><option'+(c.status==="Livré"?" selected":"")+'>Livré</option></select></td></tr>';}).join("");
+  var visibleCars=USER_ROLE==='yasmine'?ST.cars.filter(function(c){return c.seller==='Yasmine';}):ST.cars;
+  var rows=Array.prototype.slice.call(visibleCars).sort(function(a,b){return b.id.localeCompare(a.id);}).map(function(c,i){var m=mdl(c.model),dlv=c.status==="Livré";return'<tr><td><span style="font-size:10px;color:'+P.accent+';font-weight:600">'+c.id+'</span></td><td style="font-size:10px;color:'+P.muted+'">'+c.date+'</td><td style="font-weight:500">'+c.client+'</td><td><span style="color:'+(m.color||"#888")+';font-weight:600">● '+c.model+'</span></td><td style="color:'+(c.seller==="Mhamed"?P.gold:"#70b8d4")+';font-weight:600">'+c.seller+'</td><td style="font-weight:600;color:'+(dlv?P.green:P.muted)+'">'+(dlv?fmt(m.ganComm||0)+' DT':'—')+'</td><td>'+(c.seller==="Yasmine"?'<span style="font-weight:600;color:'+(dlv?P.green:P.orange)+'">'+fmt(m.yasmineComm||0)+' DT '+(dlv?'✅':'⏳')+'</span>':'<span style="color:'+P.muted+'">—</span>')+'</td><td>'+bdg(c.status,SC[c.status])+'</td><td style="font-size:10px;color:'+(c.deliveryDate?P.green:P.muted)+'">'+(c.deliveryDate||'—')+'</td><td><select class="inp" style="width:auto;padding:2px 5px;font-size:10px" onchange="updCar(\''+c.id+'\',this.value)"><option'+(c.status==="Réservé"?" selected":"")+'>Réservé</option><option'+(c.status==="Facturé"?" selected":"")+'>Facturé</option><option'+(c.status==="Livré"?" selected":"")+'>Livré</option></select></td></tr>';}).join("");
   var pills=["Livré","Facturé","Réservé"].map(function(s){return'<span class="badge" style="background:'+SC[s]+'22;color:'+SC[s]+';border:1px solid '+SC[s]+'44">'+ST.cars.filter(function(c){return c.status===s;}).length+' '+s+'</span>';}).join("");
   var form=ST.showCF?'<div class="fs" style="background:'+P.panel+';border:1px solid #c0000044"><div style="font-size:12px;font-weight:600;color:#e63946;margin-bottom:10px">🚗 Nouvelle vente</div><div class="fg"><div><label class="lbl">Modèle</label>'+selEl("nCar_model",MODELS.map(function(m){return m.name;}),ST.nCar.model)+'</div><div><label class="lbl">Vendeur</label>'+selEl("nCar_seller",["Mhamed","Yasmine"],ST.nCar.seller)+'</div><div><label class="lbl">Client</label>'+inpEl("nCar_client","text",ST.nCar.client,"Nom du client")+'</div><div><label class="lbl">Statut</label>'+selEl("nCar_status",["Réservé","Facturé","Livré"],ST.nCar.status)+'</div></div><div style="margin-top:8px;padding:6px 10px;background:#f59e0b11;border:1px solid #f59e0b33;border-radius:6px;font-size:10px;color:#f59e0b">⚠ Commission Yasmine versée uniquement à la livraison</div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-red" onclick="addCar()">Enregistrer</button><button class="btn btn-ghost" onclick="toggle(\'showCF\')">Annuler</button></div></div>':'';
   return'<div class="sec"><div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;gap:8px">'+pills+'</div><button class="btn btn-red" onclick="toggle(\'showCF\')">+ Nouvelle vente</button></div>'+form+'<div class="panel" style="overflow:auto"><table><thead class="th"><tr><th>ID</th><th>Date</th><th>Client</th><th>Modèle</th><th>Vendeur</th><th>Comm. GAN</th><th>Comm. Yasmine</th><th>Statut</th><th>Livraison</th><th>Action</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
@@ -171,7 +172,9 @@ function renderTres(){
 function render(){
   var S=ST,c=cash();
   var pendY=S.cars.filter(function(c){return c.seller==="Yasmine"&&c.status!=="Livré";});
-  var TABS=[{id:"overview",l:"📊 Direction"},{id:"ventes",l:"🚗 Ventes BYD"},{id:"sav",l:"🔧 SAV"},{id:"carro",l:"🛡 Carrosserie"},{id:"finance",l:"💰 Finances"},{id:"tres",l:"🏦 Trésorerie"}];
+  var ALL_TABS=[{id:"overview",l:"📊 Direction"},{id:"ventes",l:"🚗 Ventes BYD"},{id:"sav",l:"🔧 SAV"},{id:"carro",l:"🛡 Carrosserie"},{id:"finance",l:"💰 Finances"},{id:"tres",l:"🏦 Trésorerie"}];
+  var TABS=USER_ROLE==='yasmine'?[{id:"ventes",l:"🚗 Mes Ventes"}]:ALL_TABS;
+  if(USER_ROLE==='yasmine'&&ST.tab!=='ventes')ST.tab='ventes';
   var content="";
   if(S.tab==="overview")content=renderOverview();
   else if(S.tab==="ventes")content=renderVentes();
@@ -183,6 +186,7 @@ function render(){
 }
 // ── AUTH ─────────────────────────────────────────────────────────
 var AUTH_TOKEN = localStorage.getItem('gan_token') || null;
+var USER_ROLE = localStorage.getItem('gan_role') || null;
 
 function showLogin(errMsg) {
   document.getElementById('app').innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#050b0f"><div style="background:#0a1520;border:1px solid #0f2035;border-radius:14px;padding:40px 36px;width:340px;text-align:center"><div style="background:#c00000;border-radius:6px;padding:4px 14px;font-size:18px;font-weight:800;color:#fff;letter-spacing:2px;display:inline-block;margin-bottom:16px">BYD</div><div style="font-size:18px;font-weight:800;color:#d0e8ff;margin-bottom:4px">GAN Motor ERP</div><div style="font-size:11px;color:#3a6080;margin-bottom:28px">Acc&#232;s s&#233;curis&#233; &mdash; Nabeul</div>'+(errMsg?'<div style="background:#ff444422;border:1px solid #ff444444;border-radius:7px;padding:8px 12px;font-size:12px;color:#ff4444;margin-bottom:16px">'+errMsg+'</div>':'')+'<input id="pwd_input" type="password" placeholder="Mot de passe" style="background:#060e16;border:1px solid #0f2035;border-radius:7px;color:#d0e8ff;font-size:14px;padding:10px 14px;width:100%;margin-bottom:12px;outline:none;text-align:center" onkeydown="if(event.keyCode===13)doLogin()"><button onclick="doLogin()" style="width:100%;padding:10px;border-radius:7px;border:none;background:#00d4ff;color:#050b0f;font-size:14px;font-weight:700;cursor:pointer">Connexion</button><div style="font-size:10px;color:#3a6080;margin-top:20px">GAN Motor &middot; Agent BYD Nabeul</div></div></div>';
@@ -197,7 +201,9 @@ function doLogin() {
     .then(function(data){
       if(data.ok) {
         AUTH_TOKEN = data.token;
+        USER_ROLE = data.role;
         localStorage.setItem('gan_token', AUTH_TOKEN);
+        localStorage.setItem('gan_role', USER_ROLE);
         loadFromServer();
       } else {
         showLogin('Mot de passe incorrect');
