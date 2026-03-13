@@ -7,8 +7,11 @@ const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'data', 'db.json');
 
 // ── Password protection ───────────────────────────────────────────
-const PASSWORD = process.env.APP_PASSWORD || 'ganmotor2026';
-const SESSIONS = new Set();
+const PASSWORDS = {
+  admin: process.env.APP_PASSWORD || 'ganmotor2026',
+  yasmine: process.env.YASMINE_PASSWORD || 'yasmine2026'
+};
+const SESSIONS = new Map(); // token -> role
 
 function randomToken() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
@@ -18,10 +21,15 @@ app.use(express.json());
 
 // Login endpoint (no auth required)
 app.post('/api/login', (req, res) => {
-  if (req.body.password === PASSWORD) {
+  const pwd = req.body.password;
+  if (pwd === PASSWORDS.admin) {
     const token = randomToken();
-    SESSIONS.add(token);
-    res.json({ ok: true, token });
+    SESSIONS.set(token, 'admin');
+    res.json({ ok: true, token, role: 'admin' });
+  } else if (pwd === PASSWORDS.yasmine) {
+    const token = randomToken();
+    SESSIONS.set(token, 'yasmine');
+    res.json({ ok: true, token, role: 'yasmine' });
   } else {
     res.status(401).json({ ok: false, error: 'Mot de passe incorrect' });
   }
@@ -34,8 +42,23 @@ function requireAuth(req, res, next) {
   res.status(401).json({ error: 'Non autorisé' });
 }
 
-app.use('/api/data', requireAuth);
-app.use('/api/reset', requireAuth);
+function requireAdmin(req, res, next) {
+  const token = req.headers['x-auth-token'];
+  if (token && SESSIONS.get(token) === 'admin') return next();
+  res.status(403).json({ error: 'Accès refusé' });
+}
+
+app.get('/api/data', requireAuth, (req, res) => {
+  res.json(readDB());
+});
+app.post('/api/data', requireAdmin, (req, res) => {
+  try { writeDB(req.body); res.json({ ok: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/reset', requireAdmin, (req, res) => {
+  writeDB(JSON.parse(JSON.stringify(DEFAULT_DATA)));
+  res.json({ ok: true });
+});
 
 // Serve login page for unauthenticated requests, app for authenticated
 app.use(express.static(path.join(__dirname, 'public')));
@@ -96,9 +119,7 @@ function writeDB(data) {
 
 // ── API Routes ────────────────────────────────────────────────────
 // Get all data
-app.get('/api/data', (req, res) => {
-  res.json(readDB());
-});
+
 
 // Save all data (full replace)
 app.post('/api/data', (req, res) => {
@@ -114,6 +135,13 @@ app.post('/api/data', (req, res) => {
 app.post('/api/reset', (req, res) => {
   writeDB(JSON.parse(JSON.stringify(DEFAULT_DATA)));
   res.json({ ok: true });
+});
+
+app.get('/api/role', (req, res) => {
+  const token = req.headers['x-auth-token'];
+  const role = SESSIONS.get(token) || null;
+  if (!role) return res.status(401).json({ error: 'Non autorisé' });
+  res.json({ role });
 });
 
 // ── Serve frontend ────────────────────────────────────────────────
